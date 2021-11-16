@@ -3,6 +3,7 @@ package com.mealchak.mealchakserverapplication.config;
 import com.mealchak.mealchakserverapplication.jwt.JwtAuthenticationFilter;
 import com.mealchak.mealchakserverapplication.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,8 +13,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 @Configuration
 @RequiredArgsConstructor
@@ -34,12 +38,29 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         return super.authenticationManagerBean();
     }
 
+    //로그인 로그아웃 세션관리를 위한 bean
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.cors();
         http
                 .csrf().disable()
-                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+                .sessionManagement()
+                //계정당 최대 접속가능 세션개수
+                .maximumSessions(1)
+                //true 시 이전로그인세션종료까지 접속불가, false 시 이전로그인세션삭제후 로그인
+                .maxSessionsPreventsLogin(false)
+                //중복로그인 이동페이지 경로
+                .expiredUrl("/")
+                //세션등록
+                .sessionRegistry(sessionRegistry());
+        http
+                .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
         http.headers().frameOptions().disable();
         http.authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
@@ -47,8 +68,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers("/user/**").permitAll()
                 .antMatchers("/userInfo/{userId}").permitAll()
                 .antMatchers("/search").permitAll()
-                .antMatchers(HttpMethod.GET,"/posts").permitAll()
-                .antMatchers(HttpMethod.GET,"/posts/{postId}").permitAll()
+                .antMatchers(HttpMethod.GET, "/posts").permitAll()
+                .antMatchers(HttpMethod.GET, "/posts/{postId}").permitAll()
                 .antMatchers("/menu").permitAll()
                 .antMatchers("/").permitAll()
                 .antMatchers("/favicon.ico").permitAll()
